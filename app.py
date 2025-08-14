@@ -20,8 +20,8 @@ MAX_LOGIN_ATTEMPTS = 5
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
-# cnx = psycopg2.connect(user="hpkrhbkroa", password="{your_password}", host="planreview-server.postgres.database.azure.com", port=5432, database="postgres")
-cnx = psycopg2.connect(user="admin", password="admin", host="127.0.0.1", port="54684", database="postgres")
+cnx = psycopg2.connect(user="hpkrhbkroa", password="Resident20!)", host="planreview-server.postgres.database.azure.com", port=5432, database="postgres")
+# cnx = psycopg2.connect(user="admin", password="admin", host="127.0.0.1", port="54684", database="postgres")
 
 def login_required(f):
     @wraps(f)
