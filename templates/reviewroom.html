@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Room</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #343541;
+            color: #ececf1;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: #202123;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #4d4d4f;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 18px 12px;
+            border-bottom: 1px solid #4d4d4f;
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            padding: 12px;
+            background: transparent;
+            border: 1px solid #565869;
+            border-radius: 6px;
+            color: #ececf1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .new-chat-btn:hover {
+            background: #40414f;
+        }
+
+        .chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .chat-item {
+            padding: 12px;
+            margin: 2px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #c5c5d2;
+            transition: background 0.2s;
+            word-break: break-word;
+        }
+
+        .chat-item:hover {
+            background: #343541;
+        }
+
+        .chat-item.active {
+            background: #343541;
+            color: #ececf1;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* PDF View Layout */
+        .pdf-view-layout {
+            display: flex;
+            height: 100%;
+        }
+
+        .pdf-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        /* Comments Sidebar */
+        .comments-sidebar {
+            width: 350px;
+            background: #40414f;
+            border-left: 1px solid #565869;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .comments-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #565869;
+            background: #343541;
+        }
+
+        .comments-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #ececf1;
+            margin-bottom: 8px;
+        }
+
+        .submit-review-btn {
+            background: #10a37f;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
+        }
+
+        .submit-review-btn:hover:not(:disabled) {
+            background: #0d8a6b;
+        }
+
+        .submit-review-btn:disabled {
+            background: #4d4d4f;
+            cursor: not-allowed;
+        }
+
+        .comments-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .comment-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid #565869;
+            transition: background 0.2s;
+        }
+
+        .comment-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .comment-severity {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .comment-severity.blocking {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+
+        .comment-severity.major {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+        }
+
+        .comment-severity.minor {
+            background: rgba(34, 197, 94, 0.2);
+            color: #86efac;
+        }
+
+        .comment-category {
+            font-size: 12px;
+            color: #9ca3af;
+            text-transform: capitalize;
+        }
+
+        .comment-body {
+            color: #ececf1;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .comment-fix {
+            background: rgba(16, 163, 127, 0.1);
+            border-left: 3px solid #10a37f;
+            padding: 12px;
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 12px;
+        }
+
+        .comment-fix-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #10a37f;
+            margin-bottom: 6px;
+        }
+
+        .comment-fix-text {
+            font-size: 13px;
+            color: #d1d5db;
+            line-height: 1.4;
+        }
+
+        .comment-codes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .code-ref {
+            background: #565869;
+            color: #e5e7eb;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .comments-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            color: #8e8ea0;
+            padding: 40px 20px;
+        }
+
+        .comments-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #8e8ea0;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages-container {
+            flex: 1;
+            max-width: 768px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 20px;
+        }
+
+        /* Welcome Screen */
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .welcome-title {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            background: linear-gradient(90deg, #9089fc 0%, #ff80b5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .welcome-subtitle {
+            font-size: 16px;
+            color: #8e8ea0;
+            margin-bottom: 32px;
+        }
+
+        .example-prompts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            max-width: 600px;
+            margin-bottom: 32px;
+        }
+
+        .example-prompt {
+            background: #40414f;
+            border: 1px solid #565869;
+            border-radius: 8px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .example-prompt:hover {
+            background: #4a4b5a;
+            border-color: #6e6e80;
+        }
+
+        .example-prompt h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #ececf1;
+        }
+
+        .example-prompt p {
+            font-size: 12px;
+            color: #8e8ea0;
+            line-height: 1.4;
+        }
+
+        /* File Upload Area */
+        .file-upload-area {
+            border: 2px dashed #565869;
+            border-radius: 12px;
+            padding: 48px 32px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: transparent;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .file-upload-area:hover {
+            border-color: #10a37f;
+            background: rgba(16, 163, 127, 0.05);
+        }
+
+        .file-upload-area.dragover {
+            border-color: #10a37f;
+            background: rgba(16, 163, 127, 0.1);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            margin-bottom: 24px;
+        }
+
+        .upload-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #ececf1;
+            margin-bottom: 8px;
+        }
+
+        .upload-subtitle {
+            font-size: 16px;
+            color: #8e8ea0;
+            margin-bottom: 8px;
+        }
+
+        .upload-link {
+            color: #10a37f;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .upload-link:hover {
+            color: #0d8a6b;
+        }
+
+        .upload-info {
+            font-size: 14px;
+            color: #6e6e80;
+            margin-top: 16px;
+        }
+
+        .file-preview {
+            background: #40414f;
+            border: 1px solid #565869;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-align: left;
+        }
+
+        .file-preview .file-icon {
+            width: 32px;
+            height: 32px;
+            background: #10a37f;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .file-preview .file-info {
+            flex: 1;
+        }
+
+        .file-preview .file-name {
+            font-weight: 500;
+            color: #ececf1;
+            margin-bottom: 4px;
+        }
+
+        .file-preview .file-size {
+            font-size: 12px;
+            color: #8e8ea0;
+        }
+
+        .file-preview .remove-file {
+            background: none;
+            border: none;
+            color: #8e8ea0;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: color 0.2s;
+        }
+
+        .file-preview .remove-file:hover {
+            color: #f56565;
+        }
+
+        .start-review-button {
+            background: #10a37f;
+            border: none;
+            border-radius: 8px;
+            padding: 14px 28px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 24px;
+            display: none;
+        }
+
+        .start-review-button:hover:not(:disabled) {
+            background: #0d8a6b;
+        }
+
+        .start-review-button:disabled {
+            background: #4d4d4f;
+            cursor: not-allowed;
+        }
+
+        /* PDF Viewer Styles */
+        .pdf-viewer {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .municipality-bar {
+            background: #343541;
+            border-bottom: 1px solid #565869;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .municipality-bar label {
+            color: #ececf1;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .municipality-bar select {
+            background: #40414f;
+            color: #ececf1;
+            border: 1px solid #565869;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .municipality-bar select:focus {
+            outline: none;
+            border-color: #10a37f;
+        }
+
+        .pdf-controls {
+            background: #40414f;
+            border-bottom: 1px solid #565869;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            background: #565869;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #ececf1;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .control-btn:hover:not(:disabled) {
+            background: #6e6e80;
+        }
+
+        .control-btn:disabled {
+            background: #4d4d4f;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .page-info {
+            color: #ececf1;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .zoom-controls {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .canvas-shell {
+            flex: 1;
+            overflow: auto;
+            background: #2d2d2d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        #pdfCanvas {
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                height: 100vh;
+                z-index: 1000;
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                width: 100%;
+            }
+
+            .messages-container {
+                padding: 0 16px;
+            }
+
+            .input-area {
+                padding: 16px;
+            }
+
+            .example-prompts {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #565869;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6e6e80;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2 style="color: #ececf1; font-size: 18px; font-weight: 600; padding: 12px;">McJawn</h2>
+            <button class="new-chat-btn" onclick="window.location.href='/c'" style="margin-bottom: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Go to Chat
+            </button>
+            <button class="new-chat-btn" onclick="newChat()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                New Plan Review
+            </button>
+        </div>
+        <div class="chat-history" id="chatHistory">
+            <h3 style="padding: 12px; color: #ececf1; padding-bottom: 4px;">Chat History</h3>
+            <!-- Chat history items will be populated here -->
+        </div>
+        <div class="review-room" id="reviewRoom">
+            <h3 style="padding: 12px; color: #ececf1;">Review Room</h3>
+            <div class="chat-item active" onclick="newChat()">New Plan Review</div>
+            <!-- Review room items will be populated here -->
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="chat-container" id="chatContainer">
+            <!-- Welcome Screen -->
+            <div class="welcome-screen" id="welcomeScreen">
+                <h1 class="welcome-title">Start by uploading a plan set</h1>
+                <p class="welcome-subtitle">Start a plan review with AI</p>
+                
+                <div class="file-upload-area" id="fileUploadArea">
+                    <div class="upload-icon">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#8e8ea0" stroke-width="1.5">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14,2 14,8 20,8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10,9 9,9 8,9"></polyline>
+                        </svg>
+                    </div>
+                    <h3 class="upload-title">Drag & drop your PDF file here</h3>
+                    <p class="upload-subtitle">or <span class="upload-link">browse files</span></p>
+                    <p class="upload-info">Supports PDF files up to 10MB</p>
+                    <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+                </div>
+                
+                <button class="start-review-button" id="startReviewButton">
+                    Start Plan Review
+                </button>
+            </div>
+
+            <!-- PDF Viewer -->
+            <div class="pdf-viewer" id="pdfViewer" style="display: none;">
+                <div class="pdf-view-layout">
+                    <!-- PDF Content -->
+                    <div class="pdf-content">
+                        <!-- Municipality Dropdown Bar -->
+                        <div class="municipality-bar">
+                            <label for="muniDropdown">Choose a Municipality:</label>
+                            <select id="muniDropdown" name="options">
+                                <option value="option1">Raleigh, NC</option>
+                                <option value="option2">Durham, NC</option>
+                                <option value="option3">Wake Forest, NC</option>
+                            </select>
+                        </div>
+                        <div class="pdf-controls">
+                            <button id="prevBtn" class="control-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="15,18 9,12 15,6"></polyline>
+                                </svg>
+                                Previous
+                            </button>
+                            <span class="page-info">
+                                Page <span id="pageNum">1</span> of <span id="pageCount">1</span>
+                            </span>
+                            <button id="nextBtn" class="control-btn">
+                                Next
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="9,18 15,12 9,6"></polyline>
+                                </svg>
+                            </button>
+                            <div class="zoom-controls">
+                                <button id="zoomOutBtn" class="control-btn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                                    </svg>
+                                </button>
+                                <button id="zoomInBtn" class="control-btn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                                        <line x1="11" y1="8" x2="11" y2="14"></line>
+                                    </svg>
+                                </button>
+                                <button id="fitBtn" class="control-btn">Fit to Width</button>
+                            </div>
+                        </div>
+                        <div class="canvas-shell">
+                            <canvas id="pdfCanvas"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Comments Sidebar -->
+                    <div class="comments-sidebar">
+                        <div class="comments-header">
+                            <div class="comments-title">Review Comments</div>
+                            <button id="submitReviewBtn" class="submit-review-btn">Submit for Review</button>
+                        </div>
+                        <div class="comments-content" id="commentsContent">
+                            <div class="comments-empty" id="commentsEmpty">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 16px; opacity: 0.5;">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                    <path d="M8 10h8"></path>
+                                    <path d="M8 14h6"></path>
+                                </svg>
+                                <div style="font-size: 16px; font-weight: 500; margin-bottom: 8px;">No comments yet</div>
+                                <div style="font-size: 14px;">Submit your plan for AI review to see comments</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script type="module">
+        import * as pdfjs from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.mjs";
+
+        // Configure worker (required)
+        pdfjs.GlobalWorkerOptions.workerSrc =
+          "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.mjs";
+
+        let selectedFile = null;
+        let conversationId = null;
+        let currentMessages = [];
+        let isFirstMessage = true;
+        
+        // PDF Viewer State
+        let pdf = null;
+        let pageNum = 1;
+        let scale = 1.25;
+        let currentPdfData = null;
+        let currentReviewRoomId = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeFileUpload();
+            loadConversations();
+            loadReviewRooms();
+            initializeSubmitReviewButton();
+        });
+
+        function initializeFileUpload() {
+            const fileUploadArea = document.getElementById('fileUploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const uploadLink = document.querySelector('.upload-link');
+            const startReviewButton = document.getElementById('startReviewButton');
+
+            // Click to browse files
+            fileUploadArea.addEventListener('click', () => fileInput.click());
+            uploadLink.addEventListener('click', (e) => {
+                e.stopPropagation();
+                fileInput.click();
+            });
+
+            // Drag and drop functionality
+            fileUploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileUploadArea.classList.add('dragover');
+            });
+
+            fileUploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                fileUploadArea.classList.remove('dragover');
+            });
+
+            fileUploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileUploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFileSelection(files[0]);
+                }
+            });
+
+            // File input change
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileSelection(e.target.files[0]);
+                }
+            });
+
+            // Start review button
+            startReviewButton.addEventListener('click', startPlanReview);
+        }
+
+        function handleFileSelection(file) {
+            if (file.type !== 'application/pdf') {
+                alert('Please select a PDF file.');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) { // 10MB limit
+                alert('File size must be less than 10MB.');
+                return;
+            }
+
+            selectedFile = file;
+            showFilePreview(file);
+            document.getElementById('startReviewButton').style.display = 'block';
+        }
+
+        function showFilePreview(file) {
+            const fileUploadArea = document.getElementById('fileUploadArea');
+            
+            // Create file preview
+            const filePreview = document.createElement('div');
+            filePreview.className = 'file-preview';
+            filePreview.innerHTML = `
+                <div class="file-icon">PDF</div>
+                <div class="file-info">
+                    <div class="file-name">${file.name}</div>
+                    <div class="file-size">${formatFileSize(file.size)}</div>
+                </div>
+                <button class="remove-file" onclick="removeFile()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            `;
+
+            // Replace upload area content with preview
+            fileUploadArea.innerHTML = '';
+            fileUploadArea.appendChild(filePreview);
+        }
+
+        function removeFile() {
+            selectedFile = null;
+            document.getElementById('startReviewButton').style.display = 'none';
+            
+            // Restore original upload area
+            const fileUploadArea = document.getElementById('fileUploadArea');
+            fileUploadArea.innerHTML = `
+                <div class="upload-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#8e8ea0" stroke-width="1.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14,2 14,8 20,8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10,9 9,9 8,9"></polyline>
+                    </svg>
+                </div>
+                <h3 class="upload-title">Drag & drop your PDF file here</h3>
+                <p class="upload-subtitle">or <span class="upload-link">browse files</span></p>
+                <p class="upload-info">Supports PDF files up to 10MB</p>
+                <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+            `;
+            
+            // Re-initialize file upload
+            initializeFileUpload();
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        async function startPlanReview() {
+            if (!selectedFile) {
+                alert('Please select a PDF file first.');
+                return;
+            }
+
+            const startButton = document.getElementById('startReviewButton');
+            const originalText = startButton.textContent;
+            
+            try {
+                // Show loading state
+                startButton.disabled = true;
+                startButton.textContent = 'Uploading...';
+
+                // Get municipality from dropdown
+                const municipality = document.getElementById('muniDropdown').value;
+                
+                // Create FormData for file upload
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('title', selectedFile.name.replace('.pdf', ''));
+                formData.append('municipality', municipality);
+
+                // Upload PDF
+                const response = await fetch('/api/upload-pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.ok) {
+                    // Store PDF data for viewing
+                    currentPdfData = selectedFile;
+                    
+                    // Set the current review room ID from the response
+                    currentReviewRoomId = data.review_room_id;
+                    
+                    // Show PDF viewer and render the uploaded PDF
+                    showPdfViewer();
+                    await renderUploadedPdf();
+                    
+                    // Load any existing comments for this review room
+                    await loadReviewComments();
+                    
+                    // Reset the form and reload review rooms
+                    selectedFile = null;
+                    loadReviewRooms();
+                } else {
+                    alert(`Upload failed: ${data.error}`);
+                }
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('Upload failed. Please try again.');
+            } finally {
+                // Reset button state
+                startButton.disabled = false;
+                startButton.textContent = originalText;
+            }
+        }
+
+        function newChat() {
+            // Reset file selection and PDF viewer
+            selectedFile = null;
+            currentPdfData = null;
+            pdf = null;
+            currentReviewRoomId = null;
+            document.getElementById('startReviewButton').style.display = 'none';
+            
+            // Clear comments
+            clearComments();
+            
+            // Remove active class from all items and activate "New Plan Review"
+            document.querySelectorAll('.chat-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Find and activate the "New Plan Review" button
+            const newReviewBtn = document.querySelector('.review-room .chat-item[onclick="newChat()"]');
+            if (newReviewBtn) {
+                newReviewBtn.classList.add('active');
+            }
+            
+            showWelcomeScreen();
+            removeFile();
+        }
+
+        // PDF Viewer Functions
+        function showPdfViewer() {
+            document.getElementById('welcomeScreen').style.display = 'none';
+            document.getElementById('pdfViewer').style.display = 'flex';
+        }
+
+        function showWelcomeScreen() {
+            document.getElementById('welcomeScreen').style.display = 'flex';
+            document.getElementById('pdfViewer').style.display = 'none';
+        }
+
+        async function renderUploadedPdf() {
+            if (!currentPdfData) return;
+
+            try {
+                const arrayBuffer = await currentPdfData.arrayBuffer();
+                await loadPdfFromArrayBuffer(arrayBuffer);
+                
+                // Clear review room ID since this is a new upload
+                currentReviewRoomId = null;
+
+            } catch (error) {
+                console.error('Error rendering PDF:', error);
+                alert('Failed to render PDF');
+            }
+        }
+
+        async function renderPage(num, fit = false) {
+            if (!pdf) return;
+
+            const page = await pdf.getPage(num);
+            const canvas = document.getElementById('pdfCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Determine scale to fit canvas-shell width if requested
+            const canvasShell = document.querySelector('.canvas-shell');
+            let viewport = page.getViewport({ scale: 1 });
+            if (fit) {
+                const targetWidth = canvasShell.clientWidth - 40; // Account for padding
+                scale = targetWidth / viewport.width;
+            }
+            viewport = page.getViewport({ scale });
+
+            // Resize canvas
+            canvas.width = Math.floor(viewport.width);
+            canvas.height = Math.floor(viewport.height);
+
+            // Render
+            await page.render({
+                canvasContext: ctx,
+                viewport
+            }).promise;
+
+            // Update page number display
+            document.getElementById('pageNum').textContent = num;
+        }
+
+        function initializePdfControls() {
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const zoomInBtn = document.getElementById('zoomInBtn');
+            const zoomOutBtn = document.getElementById('zoomOutBtn');
+            const fitBtn = document.getElementById('fitBtn');
+
+            // Remove existing listeners to avoid duplicates
+            prevBtn.replaceWith(prevBtn.cloneNode(true));
+            nextBtn.replaceWith(nextBtn.cloneNode(true));
+            zoomInBtn.replaceWith(zoomInBtn.cloneNode(true));
+            zoomOutBtn.replaceWith(zoomOutBtn.cloneNode(true));
+            fitBtn.replaceWith(fitBtn.cloneNode(true));
+
+            // Get fresh references
+            const newPrevBtn = document.getElementById('prevBtn');
+            const newNextBtn = document.getElementById('nextBtn');
+            const newZoomInBtn = document.getElementById('zoomInBtn');
+            const newZoomOutBtn = document.getElementById('zoomOutBtn');
+            const newFitBtn = document.getElementById('fitBtn');
+
+            // Add event listeners
+            newPrevBtn.addEventListener('click', async () => {
+                if (pageNum <= 1) return;
+                pageNum--;
+                await renderPage(pageNum);
+            });
+
+            newNextBtn.addEventListener('click', async () => {
+                if (pageNum >= pdf.numPages) return;
+                pageNum++;
+                await renderPage(pageNum);
+            });
+
+            newZoomInBtn.addEventListener('click', async () => {
+                scale *= 1.15;
+                await renderPage(pageNum);
+            });
+
+            newZoomOutBtn.addEventListener('click', async () => {
+                scale = Math.max(0.2, scale / 1.15);
+                await renderPage(pageNum);
+            });
+
+            newFitBtn.addEventListener('click', async () => {
+                await renderPage(pageNum, true);
+            });
+        }
+
+        // Conversation management functions
+        async function loadConversations() {
+            try {
+                const response = await fetch('/api/conversations');
+                const data = await response.json();
+
+                if (response.ok && data.ok) {
+                    displayConversations(data.conversations);
+                } else {
+                    console.error('Failed to load conversations:', data.error);
+                }
+            } catch (error) {
+                console.error('Error loading conversations:', error);
+            }
+        }
+
+        function displayConversations(conversations) {
+            const chatHistory = document.getElementById('chatHistory');
+            
+            // Clear existing conversations (keep the header)
+            const header = chatHistory.querySelector('h3');
+            chatHistory.innerHTML = '';
+            chatHistory.appendChild(header);
+
+            if (conversations.length === 0) {
+                const emptyMessage = document.createElement('div');
+                emptyMessage.style.padding = '12px';
+                emptyMessage.style.color = '#8e8ea0';
+                emptyMessage.style.fontSize = '14px';
+                emptyMessage.textContent = 'No conversations yet';
+                chatHistory.appendChild(emptyMessage);
+                return;
+            }
+
+            conversations.forEach(conversation => {
+                const chatItem = document.createElement('div');
+                chatItem.className = 'chat-item';
+                chatItem.textContent = conversation.title;
+                chatItem.onclick = () => window.location.href = '/c';
+                chatItem.dataset.conversationId = conversation.conversation_id;
+                
+                // Add favorite indicator if needed
+                if (conversation.is_favorite) {
+                    chatItem.innerHTML = `⭐ ${conversation.title}`;
+                }
+                
+                chatHistory.appendChild(chatItem);
+            });
+        }
+
+        // Review room management functions
+        async function loadReviewRooms() {
+            try {
+                const response = await fetch('/api/reviewrooms');
+                const data = await response.json();
+
+                if (response.ok && data.ok) {
+                    displayReviewRooms(data.reviewrooms);
+                } else {
+                    console.error('Failed to load review rooms:', data.error);
+                }
+            } catch (error) {
+                console.error('Error loading review rooms:', error);
+            }
+        }
+
+        function displayReviewRooms(reviewrooms) {
+            const reviewRoom = document.getElementById('reviewRoom');
+            
+            // Keep the header and "New Plan Review" button
+            const header = reviewRoom.querySelector('h3');
+            const newReviewButton = reviewRoom.querySelector('.chat-item');
+            reviewRoom.innerHTML = '';
+            reviewRoom.appendChild(header);
+            reviewRoom.appendChild(newReviewButton);
+
+            if (reviewrooms.length === 0) {
+                const emptyMessage = document.createElement('div');
+                emptyMessage.style.padding = '12px';
+                emptyMessage.style.color = '#8e8ea0';
+                emptyMessage.style.fontSize = '14px';
+                emptyMessage.textContent = 'No review rooms yet';
+                reviewRoom.appendChild(emptyMessage);
+                return;
+            }
+
+            reviewrooms.forEach(reviewroom => {
+                const reviewItem = document.createElement('div');
+                reviewItem.className = 'chat-item';
+                reviewItem.textContent = reviewroom.title;
+                reviewItem.onclick = () => selectReviewRoom(reviewroom.review_room_id);
+                reviewItem.dataset.reviewRoomId = reviewroom.review_room_id;
+                
+                // Add favorite indicator if needed
+                if (reviewroom.is_favorite) {
+                    reviewItem.innerHTML = `⭐ ${reviewroom.title}`;
+                }
+                
+                reviewRoom.appendChild(reviewItem);
+            });
+        }
+
+        async function selectReviewRoom(reviewRoomId) {
+            console.log('Selecting review room:', reviewRoomId);
+            
+            // Remove active class from all items
+            document.querySelectorAll('.chat-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // Add active class to selected item
+            const selectedItem = document.querySelector(`[data-review-room-id="${reviewRoomId}"]`);
+            if (selectedItem) {
+                selectedItem.classList.add('active');
+            }
+
+            try {
+                // Load PDF from database
+                await loadReviewRoomPdf(reviewRoomId);
+                
+                // Load existing comments for this review room
+                await loadReviewComments();
+            } catch (error) {
+                console.error('Error loading review room:', error);
+                showWelcomeScreen();
+                clearComments();
+            }
+        }
+
+        async function loadReviewRoomPdf(reviewRoomId) {
+            try {
+                // Show loading state
+                showPdfViewer();
+                showLoadingState();
+
+                // Fetch PDF from server
+                const response = await fetch(`/api/reviewrooms/${reviewRoomId}/pdf`);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load PDF: ${response.status}`);
+                }
+
+                // Get PDF data as array buffer
+                const arrayBuffer = await response.arrayBuffer();
+                
+                // Load and render PDF
+                await loadPdfFromArrayBuffer(arrayBuffer);
+                
+                // Update state
+                currentReviewRoomId = reviewRoomId;
+                currentPdfData = null; // Clear uploaded file data
+                
+                hideLoadingState();
+
+            } catch (error) {
+                console.error('Error loading review room PDF:', error);
+                hideLoadingState();
+                showWelcomeScreen();
+                alert('Failed to load PDF. Please try again.');
+            }
+        }
+
+        async function loadPdfFromArrayBuffer(arrayBuffer) {
+            try {
+                const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+                pdf = await loadingTask.promise;
+
+                // Update page count
+                document.getElementById('pageCount').textContent = pdf.numPages;
+                pageNum = 1;
+
+                // Render first page
+                await renderPage(pageNum, true);
+
+                // Initialize controls
+                initializePdfControls();
+
+            } catch (error) {
+                console.error('Error loading PDF from array buffer:', error);
+                throw error;
+            }
+        }
+
+        function showLoadingState() {
+            const canvas = document.getElementById('pdfCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas and show loading message
+            canvas.width = 400;
+            canvas.height = 200;
+            ctx.fillStyle = '#2d2d2d';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#ececf1';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Loading PDF...', canvas.width / 2, canvas.height / 2);
+        }
+
+        function hideLoadingState() {
+            // Loading state is hidden when PDF renders
+        }
+
+        // Handle window resize for PDF viewer
+        window.addEventListener('resize', () => {
+            if (pdf && pageNum) {
+                renderPage(pageNum, true);
+            }
+        });
+
+        // Submit Review and Comments Functions
+        function initializeSubmitReviewButton() {
+            const submitBtn = document.getElementById('submitReviewBtn');
+            submitBtn.addEventListener('click', submitPlanForReview);
+        }
+
+        async function submitPlanForReview() {
+            if (!currentReviewRoomId) {
+                showNotification('Please select a review room first. Upload a PDF to create one.', 'error');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitReviewBtn');
+            const originalText = submitBtn.textContent;
+            
+            try {
+                // Show loading state
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Submitting...';
+                showCommentsLoading();
+
+                // Submit plan for review
+                const response = await fetch(`/api/reviewrooms/${currentReviewRoomId}/submit-plan`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.ok) {
+                    // Load and display comments
+                    await loadReviewComments();
+                    
+                    // Show success message
+                    showNotification('Plan submitted for review successfully!', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to submit plan for review');
+                }
+
+            } catch (error) {
+                console.error('Error submitting plan for review:', error);
+                showNotification(`Failed to submit plan: ${error.message}`, 'error');
+                hideCommentsLoading();
+            } finally {
+                // Reset button state
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        }
+
+        async function loadReviewComments() {
+            if (!currentReviewRoomId) {
+                console.log('No review room ID set, skipping comment load');
+                clearComments();
+                return;
+            }
+
+            try {
+                console.log(`Loading comments for review room: ${currentReviewRoomId}`);
+                const response = await fetch(`/api/reviewrooms/${currentReviewRoomId}/comments`);
+                console.log('API response status:', response.status);
+                
+                const data = await response.json();
+                console.log('API response data:', data);
+
+                if (response.ok && data.ok) {
+                    console.log('API call successful, processing comments...');
+                    const comments = data.review_comments?.comments || [];
+                    console.log(`Found ${comments.length} comments in response`);
+                    console.log('Comments data structure:', data.review_comments);
+                    displayComments(comments);
+                } else {
+                    console.error('API call failed:', data.error);
+                    displayComments([]);
+                }
+            } catch (error) {
+                console.error('Error loading comments:', error);
+                displayComments([]);
+            }
+        }
+
+        function clearComments() {
+            const commentsContent = document.getElementById('commentsContent');
+            const commentsEmpty = document.getElementById('commentsEmpty');
+            
+            if (commentsContent) {
+                commentsContent.innerHTML = '';
+            }
+            
+            if (commentsEmpty) {
+                commentsEmpty.style.display = 'flex';
+            }
+            
+            // Also hide any loading states
+            hideCommentsLoading();
+        }
+
+        function displayComments(comments) {
+            console.log('displayComments called with:', comments);
+            
+            const commentsContent = document.getElementById('commentsContent');
+            const commentsEmpty = document.getElementById('commentsEmpty');
+            
+            // Check if elements exist before accessing their properties
+            if (!commentsContent || !commentsEmpty) {
+                console.error('Comments elements not found');
+                return;
+            }
+            
+            console.log('Comments elements found, processing comments...');
+            
+            // Hide empty state and loading
+            commentsEmpty.style.display = 'none';
+            hideCommentsLoading();
+
+            if (!comments || comments.length === 0) {
+                console.log('No comments to display, showing empty state');
+                commentsEmpty.style.display = 'flex';
+                return;
+            }
+
+            console.log(`Displaying ${comments.length} comments`);
+            
+            // Clear existing comments
+            commentsContent.innerHTML = '';
+
+            // Add each comment
+            comments.forEach((comment, index) => {
+                console.log(`Creating comment ${index + 1}:`, comment);
+                const commentElement = createCommentElement(comment, index);
+                commentsContent.appendChild(commentElement);
+            });
+            
+            console.log('Comments display completed');
+        }
+
+        function createCommentElement(comment, index) {
+            const commentDiv = document.createElement('div');
+            commentDiv.className = 'comment-item';
+            commentDiv.innerHTML = `
+                <div class="comment-header">
+                    <div class="comment-category">${comment.category || 'General'}</div>
+                    <div class="comment-severity ${comment.severity || 'minor'}">${comment.severity || 'minor'}</div>
+                </div>
+                <div class="comment-body">${comment.body || ''}</div>
+                ${comment.suggested_fix ? `
+                    <div class="comment-fix">
+                        <div class="comment-fix-title">Suggested Fix</div>
+                        <div class="comment-fix-text">${comment.suggested_fix}</div>
+                    </div>
+                ` : ''}
+                ${comment.code_refs && comment.code_refs.length > 0 ? `
+                    <div class="comment-codes">
+                        ${comment.code_refs.map(ref => `<span class="code-ref">${ref}</span>`).join('')}
+                    </div>
+                ` : ''}
+            `;
+            return commentDiv;
+        }
+
+        function showCommentsLoading() {
+            const commentsContent = document.getElementById('commentsContent');
+            const commentsEmpty = document.getElementById('commentsEmpty');
+            
+            // Check if elements exist before accessing their properties
+            if (commentsEmpty) {
+                commentsEmpty.style.display = 'none';
+            }
+            
+            if (commentsContent) {
+                commentsContent.innerHTML = `
+                    <div class="comments-loading">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; margin-right: 8px;">
+                            <path d="M12 2v4m6.364.636l-2.828 2.828M20 12h-4m-2.636 6.364l-2.828-2.828M12 20v-4m-6.364-2.636l2.828-2.828M4 12h4m2.636-6.364l2.828 2.828"/>
+                        </svg>
+                        Getting AI review...
+                    </div>
+                `;
+            }
+        }
+
+        function hideCommentsLoading() {
+            const loadingElement = document.querySelector('.comments-loading');
+            if (loadingElement) {
+                loadingElement.remove();
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 6px;
+                color: white;
+                font-size: 14px;
+                font-weight: 500;
+                z-index: 1000;
+                opacity: 0;
+                transform: translateX(100%);
+                transition: all 0.3s ease;
+                max-width: 300px;
+                word-wrap: break-word;
+            `;
+
+            // Set background color based on type
+            if (type === 'success') {
+                notification.style.background = '#10a37f';
+            } else if (type === 'error') {
+                notification.style.background = '#ef4444';
+            } else {
+                notification.style.background = '#6b7280';
+            }
+
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            // Animate in
+            setTimeout(() => {
+                notification.style.opacity = '1';
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+
+            // Remove after 5 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+
+        // Mobile sidebar toggle
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        // Add CSS for spin animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+{
+  "comments": [
+    {
+      "page_key": "Sheet 2",
+      "region": {
+        "x": 105,
+        "y": 225,
+        "w": 420,
+        "h": 380
+      },
+      "body": "Impervious surface breakdown (existing vs. proposed) is not clearly labeled. Please ensure all sources of impervious area (building, driveway, patios, etc.) are individually itemized and mapped. This is required to confirm compliance with maximum impervious surface allowances per UDO 9.5 and watershed overlay requirements (if applicable).",
+      "suggested_fix": "Add a table or label on the site plan showing the existing and proposed impervious surface areas, separated by type (house, driveway, etc.), with total calculations for each.",
+      "severity": "major",
+      "category": "stormwater",
+      "code_refs": [
+        "UDO Sec. 9.2.2.C",
+        "UDO Sec. 9.5.3"
+      ]
+    },
+    {
+      "page_key": "Sheet 2",
+      "region": {
+        "x": 480,
+        "y": 292,
+        "w": 210,
+        "h": 160
+      },
+      "body": "No watershed overlay district information or riparian buffer delineation is depicted. If the site is within a Watershed Protection Overlay (e.g., Falls Lake, Swift Creek) or close to a watercourse, buffers and overlays must be shown per UDO mapping/planning guidance.",
+      "suggested_fix": "Depict all applicable watershed overlays and riparian buffers on the plan sheet. Clearly identify buffer widths and any impacts, flags, or required notes.",
+      "severity": "blocking",
+      "category": "stormwater",
+      "code_refs": [
+        "UDO Sec. 9.5.3",
+        "UDO Sec. 9.2.2.",
+        "Stormwater Design Manual Ch. 3"
+      ]
+    },
+    {
+      "page_key": "Sheet 2",
+      "region": {
+        "x": 350,
+        "y": 615,
+        "w": 220,
+        "h": 110
+      },
+      "body": "There are no stormwater control measures (SCMs) or calculations shown to address water quality/quantity requirements for new impervious surface. If impervious limits are exceeded or specified by overlay, demonstration of compliance via SCM, volume control, or supporting hydrologic/hydraulic modeling is required.",
+      "suggested_fix": "Add location, design, and calculations for proposed (or existing) stormwater control measures. Provide drainage area maps, calculations for pre- and post-development flows, and device sizing per City requirements. If exceeding overlay limit, show 90th percentile storm volume device and associated O&M documentation.",
+      "severity": "blocking",
+      "category": "stormwater",
+      "code_refs": [
+        "UDO Sec. 9.2.2.E",
+        "Stormwater Design Manual Ch. 4"
+      ]
+    },
+    {
+      "page_key": "Sheet 2",
+      "region": {
+        "x": 15,
+        "y": 680,
+        "w": 120,
+        "h": 110
+      },
+      "body": "No land disturbance or erosion control notes are present. For disturbances ≥12,000 sf, land disturbance permit and ESC plan are required.",
+      "suggested_fix": "Add a statement on the sheet regarding total land disturbance and provide details or reference for the erosion and sediment control plan. Include permit numbers if already acquired.",
+      "severity": "major",
+      "category": "stormwater",
+      "code_refs": [
+        "UDO Sec. 9.4.6",
+        "Stormwater Design Manual Ch. 9"
+      ]
+    },
+    {
+      "page_key": "Sheet 2",
+      "region": {
+        "x": 130,
+        "y": 800,
+        "w": 390,
+        "h": 110
+      },
+      "body": "As-built certification, maintenance, and annual inspection requirements for any SCMs are not referenced on the plan. To ensure post-construction stormwater compliance, as-built forms (Form 511), inspection schedules, and maintenance O&M sheets must be included or cross-referenced.",
+      "suggested_fix": "Add a construction note requiring as-built submittal (Form 511) upon completion of SCM. Include statement assigning owner responsibility for annual inspections and maintenance, per City requirements.",
+      "severity": "minor",
+      "category": "stormwater",
+      "code_refs": [
+        "Stormwater Design Manual Ch. 6.4",
+        "Form 511 Guidance"
+      ]
+    }
+  ]
+}

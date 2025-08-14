@@ -1,0 +1,32 @@
+{
+  "reviewers": [
+    {
+      "name": "Zoning Reviewer",
+      "assistant_id": "asst_OtvuMI3TfY3oMx8QVWrJFr6M"
+    },
+    {
+      "name": "Planning Reviewer",
+      "assistant_id": "asst_TgsRmOc7VfSLtBVX2lWiGkiR"
+    },
+    {
+      "name": "Urban Forestry Reviewer",
+      "assistant_id": "asst_O3jFwfmxr34QyMDqY6OcyOjc"
+    },
+    {
+      "name": "Fire Department Reviewer",
+      "assistant_id": "asst_VThCdrkAdAwlkQ3EjNoO8pWI"
+    },
+    {
+      "name": "Transportation Reviewer",
+      "assistant_id": "asst_jW26VNLAYa1tnDckGFdBebeW"
+    },
+    {
+      "name": "Public Utilities Reviewer",
+      "assistant_id": "asst_RZvQEyczTkaULsjxCMsf5VEq"
+    },
+    {
+      "name": "Stormwater Reviewer",
+      "assistant_id": "asst_ilJM8EKS3lz80pN6urr1qwJc"
+    }
+  ]
+}
