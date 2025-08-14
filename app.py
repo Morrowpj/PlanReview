@@ -431,45 +431,46 @@ def get_reviewroom_pdf(review_room_id):
                 pdf_data = pdf_files[0]
                 
                 # Run OCR and log results when PDF is loaded
-                print(f"\n=== OCR PROCESSING FOR REVIEW ROOM {review_room_id} ===")
-                print(f"Title: {title}")
-                print(f"User: {session.get('username', 'Unknown')}")
-                
-                try:
-                    ocr_results = planreview.extract_text_with_ocr_blocks(pdf_data)
-                    
-                    print(f"OCR Results: Found {len(ocr_results)} text elements")
-                    print("=" * 60)
-                    
-                    # Group results by page for better logging
-                    pages = {}
-                    for item in ocr_results:
-                        page = item['page']
-                        if page not in pages:
-                            pages[page] = []
-                        pages[page].append(item)
-                    
-                    # Log results page by page
-                    for page_num in sorted(pages.keys()):
-                        page_items = pages[page_num]
-                        print(f"\nPAGE {page_num}: {len(page_items)} text elements")
-                        print("-" * 40)
-                        
-                        for i, item in enumerate(page_items[:20], 1):  # Limit to first 20 items per page
-                            bbox = item['bbox']
-                            confidence = item['confidence']
-                            text = item['text'][:50]  # Truncate long text
-                            
-                            print(f"{i:2d}. [{bbox['x']:4d},{bbox['y']:4d} {bbox['width']:3d}x{bbox['height']:3d}] "
-                                  f"({confidence:2d}%) \"{text}\"")
-                        
-                        if len(page_items) > 20:
-                            print(f"    ... and {len(page_items) - 20} more items")
-                    
-                    print("=" * 60)
-                    
-                except Exception as ocr_error:
-                    print(f"OCR Error: {ocr_error}")
+                # COMMENTED OUT: OCR processing during loading - OCR is done again before sending to assistant
+                # print(f"\n=== OCR PROCESSING FOR REVIEW ROOM {review_room_id} ===")
+                # print(f"Title: {title}")
+                # print(f"User: {session.get('username', 'Unknown')}")
+                # 
+                # try:
+                #     ocr_results = planreview.extract_text_with_ocr_blocks(pdf_data)
+                #     
+                #     print(f"OCR Results: Found {len(ocr_results)} text elements")
+                #     print("=" * 60)
+                #     
+                #     # Group results by page for better logging
+                #     pages = {}
+                #     for item in ocr_results:
+                #         page = item['page']
+                #         if page not in pages:
+                #             pages[page] = []
+                #         pages[page].append(item)
+                #     
+                #     # Log results page by page
+                #     for page_num in sorted(pages.keys()):
+                #         page_items = pages[page_num]
+                #         print(f"\nPAGE {page_num}: {len(page_items)} text elements")
+                #         print("-" * 40)
+                #         
+                #         for i, item in enumerate(page_items[:20], 1):  # Limit to first 20 items per page
+                #             bbox = item['bbox']
+                #             confidence = item['confidence']
+                #             text = item['text'][:50]  # Truncate long text
+                #             
+                #             print(f"{i:2d}. [{bbox['x']:4d},{bbox['y']:4d} {bbox['width']:3d}x{bbox['height']:3d}] "
+                #                   f"({confidence:2d}%) \"{text}\"")
+                #         
+                #         if len(page_items) > 20:
+                #             print(f"    ... and {len(page_items) - 20} more items")
+                #     
+                #     print("=" * 60)
+                #     
+                # except Exception as ocr_error:
+                #     print(f"OCR Error: {ocr_error}")
                 
                 # Create response with PDF data
                 from flask import Response

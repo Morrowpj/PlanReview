@@ -1,4 +1,4 @@
--- DROP TABLE conversations;
+DROP TABLE conversations;
 CREATE TABLE conversations (
     conversation_id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
