@@ -22,7 +22,17 @@ jobs:
       - name: Set up Python version
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.11'
+
+      - name: Install system dependencies for OCR
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-eng
+          sudo apt-get install -y poppler-utils
+          sudo apt-get install -y libgl1-mesa-glx libglib2.0-0
+          sudo apt-get install -y libsm6 libxext6 libxrender-dev
+          sudo apt-get install -y libgomp1
+          tesseract --version
 
       - name: Create and start virtual environment
         run: |
@@ -30,7 +40,10 @@ jobs:
           source venv/bin/activate
       
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
