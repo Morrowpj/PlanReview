@@ -27,6 +27,10 @@
     {
       "name": "Stormwater Reviewer",
       "assistant_id": "asst_ilJM8EKS3lz80pN6urr1qwJc"
+    },
+    {
+      "name": "General Reviewer",
+      "assistant_id": "asst_Ln9PSpN8HvdnSTQVWnCNXrmm"
     }
   ]
 }

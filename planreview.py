@@ -40,7 +40,7 @@ def extract_text_with_ocr_blocks(pdf_data):
         list: Array of text blocks with bounding boxes
     """
     try:
-        images = convert_from_bytes(pdf_data, dpi=300, fmt='PNG')
+        images = convert_from_bytes(pdf_data, dpi=150, fmt='PNG')
         
         ocr_results = []
         
@@ -132,7 +132,7 @@ def format_ocr_for_prompt(ocr_data: list) -> str:
         pages[page].append(item)
     
     formatted_text = []
-    formatted_text.append("=== EXTRACTED TEXT FROM PLAN DOCUMENTS ===\n")
+    formatted_text.append("=== EXTRACTED TEXT FROM PLAN DOCUMENTS: USE ONLY FOR REFERENCE NOT COMMENTS ===\n")
     
     for page_num in sorted(pages.keys()):
         page_blocks = pages[page_num]
@@ -312,18 +312,18 @@ def submit_plan_to_reviewer(pdf_data: bytes, title: str, reviewer_name: str) -> 
         print(f"OCR extraction complete: Found {len(ocr_data)} text blocks")
         
         # Format OCR data for the prompt
-        ocr_text = format_ocr_for_prompt(ocr_data)
+        ocr_text = "" #format_ocr_for_prompt(ocr_data)
         
         # Create enhanced message with OCR data
         message = f"""Please review this development plan.
 
 Plan Title: {title}
 
-This is the first sheet of the plan set that needs review according to municipal regulations.
+This is the first sheet of the plan set that needs review according to your role.
 
 {ocr_text}
 
-Based on the extracted text and layout information above, please provide your review. When referencing specific areas of concern, use the position information from the extracted text blocks to provide precise feedback."""
+Rely on your file search tool for generating comments. Please provide your review."""
         
         # Call the assistant
         result = udochat.create_flask_response(

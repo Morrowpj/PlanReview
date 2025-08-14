@@ -740,6 +740,9 @@
                     <div class="comments-sidebar">
                         <div class="comments-header">
                             <div class="comments-title">Review Comments</div>
+                            <select id="reviewerDropdown" style="width: 100%; padding: 8px 12px; background: #40414f; color: #ececf1; border: 1px solid #565869; border-radius: 6px; margin-bottom: 8px; font-size: 14px;">
+                                <option value="">Select a reviewer...</option>
+                            </select>
                             <button id="submitReviewBtn" class="submit-review-btn">Submit for Review</button>
                         </div>
                         <div class="comments-content" id="commentsContent">
@@ -785,6 +788,7 @@
             loadConversations();
             loadReviewRooms();
             initializeSubmitReviewButton();
+            loadReviewers();
         });
 
         function initializeFileUpload() {
@@ -1216,6 +1220,9 @@
                 selectedItem.classList.add('active');
             }
 
+            // Clear comments first to prevent old comments from persisting
+            clearComments();
+
             try {
                 // Load PDF from database
                 await loadReviewRoomPdf(reviewRoomId);
@@ -1310,6 +1317,36 @@
             }
         });
 
+        // Load available reviewers
+        async function loadReviewers() {
+            try {
+                const response = await fetch('/api/reviewers');
+                const data = await response.json();
+
+                if (response.ok && data.ok) {
+                    const dropdown = document.getElementById('reviewerDropdown');
+                    
+                    // Clear existing options except the first one
+                    dropdown.innerHTML = '<option value="">Select a reviewer...</option>';
+                    
+                    // Add reviewer options
+                    data.reviewers.forEach(reviewer => {
+                        const option = document.createElement('option');
+                        option.value = reviewer.name;
+                        option.textContent = reviewer.name;
+                        dropdown.appendChild(option);
+                    });
+                    
+                    // Set default to Stormwater Reviewer
+                    dropdown.value = 'Stormwater Reviewer';
+                } else {
+                    console.error('Failed to load reviewers:', data.error);
+                }
+            } catch (error) {
+                console.error('Error loading reviewers:', error);
+            }
+        }
+
         // Submit Review and Comments Functions
         function initializeSubmitReviewButton() {
             const submitBtn = document.getElementById('submitReviewBtn');
@@ -1322,6 +1359,15 @@
                 return;
             }
 
+            // Get selected reviewer
+            const reviewerDropdown = document.getElementById('reviewerDropdown');
+            const selectedReviewer = reviewerDropdown.value;
+            
+            if (!selectedReviewer) {
+                showNotification('Please select a reviewer first.', 'error');
+                return;
+            }
+
             const submitBtn = document.getElementById('submitReviewBtn');
             const originalText = submitBtn.textContent;
             
@@ -1331,12 +1377,15 @@
                 submitBtn.textContent = 'Submitting...';
                 showCommentsLoading();
 
-                // Submit plan for review
+                // Submit plan for review with selected reviewer
                 const response = await fetch(`/api/reviewrooms/${currentReviewRoomId}/submit-plan`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    body: JSON.stringify({
+                        reviewer_name: selectedReviewer
+                    })
                 });
 
                 const data = await response.json();
@@ -1394,19 +1443,39 @@
         }
 
         function clearComments() {
+            console.log('Clearing comments...');
             const commentsContent = document.getElementById('commentsContent');
             const commentsEmpty = document.getElementById('commentsEmpty');
             
-            if (commentsContent) {
-                commentsContent.innerHTML = '';
-            }
-            
-            if (commentsEmpty) {
-                commentsEmpty.style.display = 'flex';
-            }
-            
-            // Also hide any loading states
+            // Hide any loading states first
             hideCommentsLoading();
+            
+            if (commentsContent) {
+                // Clear all comment content
+                commentsContent.innerHTML = '';
+                // Re-add the empty state element if it doesn't exist
+                if (!document.getElementById('commentsEmpty')) {
+                    commentsContent.innerHTML = `
+                        <div class="comments-empty" id="commentsEmpty">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 16px; opacity: 0.5;">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                <path d="M8 10h8"></path>
+                                <path d="M8 14h6"></path>
+                            </svg>
+                            <div style="font-size: 16px; font-weight: 500; margin-bottom: 8px;">No comments yet</div>
+                            <div style="font-size: 14px;">Submit your plan for AI review to see comments</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Ensure empty state is visible
+            const emptyElement = document.getElementById('commentsEmpty');
+            if (emptyElement) {
+                emptyElement.style.display = 'flex';
+            }
+            
+            console.log('Comments cleared successfully');
         }
 
         function displayComments(comments) {

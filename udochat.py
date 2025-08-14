@@ -49,7 +49,7 @@ class OpenAIAssistant:
             print(f"❌ Error creating thread: {e}")
             return None
     
-    def send_message(self, message: str, assistant_id: Optional[str] = None, thread_id: Optional[str] = None) -> str:
+    def send_message(self, message: str, assistant_id: Optional[str] = None, thread_id: Optional[str] = None, file_data: Optional[bytes] = None, filename: Optional[str] = None) -> str:
         """Send a message and get the assistant's response"""
         try:
             # Use provided IDs or fall back to instance variables
@@ -59,12 +59,44 @@ class OpenAIAssistant:
             if not assistant_id or not thread_id:
                 raise ValueError("Assistant ID and Thread ID are required")
             
+            # Handle file upload if provided
+            file_id = None
+            if file_data and filename:
+                try:
+                    print(f"📁 Uploading file: {filename}")
+                    # Create a temporary file-like object from bytes
+                    import io
+                    file_obj = io.BytesIO(file_data)
+                    file_obj.name = filename
+                    
+                    # Upload file to OpenAI
+                    file_response = self.client.files.create(
+                        file=file_obj,
+                        purpose='assistants'
+                    )
+                    file_id = file_response.id
+                    print(f"✅ File uploaded with ID: {file_id}")
+                except Exception as e:
+                    print(f"❌ Error uploading file: {e}")
+                    # Continue without file if upload fails
+            
+            # Prepare message content
+            message_data = {
+                "thread_id": thread_id,
+                "role": "user",
+                "content": message
+            }
+            
+            # Add file attachment if we have a file ID
+            if file_id:
+                message_data["attachments"] = [{
+                    "file_id": file_id,
+                    "tools": [{"type": "file_search"}]
+                }]
+                print(f"📎 Attaching file {file_id} to message")
+            
             # Add message to thread
-            self.client.beta.threads.messages.create(
-                thread_id=thread_id,
-                role="user",
-                content=message
-            )
+            self.client.beta.threads.messages.create(**message_data)
             
             # Run the assistant
             run = self.client.beta.threads.runs.create(
@@ -135,7 +167,7 @@ class OpenAIAssistant:
 
 
 # Flask Integration Functions
-def create_flask_response(message: str, assistant_id: str = None, thread_id: str = None) -> dict:
+def create_flask_response(message: str, assistant_id: str = None, thread_id: str = None, file_data: bytes = None, filename: str = None) -> dict:
     """Function specifically for Flask integration"""
     assistant = OpenAIAssistant()
     
@@ -151,7 +183,7 @@ def create_flask_response(message: str, assistant_id: str = None, thread_id: str
     if not assistant.thread_id:
         assistant.create_thread()
     
-    response = assistant.send_message(message)
+    response = assistant.send_message(message, file_data=file_data, filename=filename)
     
     return {
         "response": response,

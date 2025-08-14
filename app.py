@@ -20,8 +20,8 @@ MAX_LOGIN_ATTEMPTS = 5
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
-cnx = psycopg2.connect(user="hpkrhbkroa", password="Resident20!)", host="planreview-server.postgres.database.azure.com", port=5432, database="postgres")
-# cnx = psycopg2.connect(user="admin", password="admin", host="127.0.0.1", port="54684", database="postgres")
+# cnx = psycopg2.connect(user="hpkrhbkroa", password="Resident20!)", host="planreview-server.postgres.database.azure.com", port=5432, database="postgres")
+cnx = psycopg2.connect(user="admin", password="admin", host="127.0.0.1", port="54580", database="postgres")
 
 def login_required(f):
     @wraps(f)
@@ -410,9 +410,35 @@ def get_reviewroom_pdf(review_room_id):
     try:
         with cnx:
             with cnx.cursor() as cur:
+                # First, check if PDF exists and get metadata for caching
                 cur.execute(
                     """
-                    SELECT pdf_files, title
+                    SELECT title, updated_at
+                    FROM reviewrooms 
+                    WHERE review_room_id = %s AND user_id = %s AND is_active = TRUE
+                    """,
+                    (review_room_id, session['user_id'])
+                )
+                
+                metadata_row = cur.fetchone()
+                if not metadata_row:
+                    return jsonify({"ok": False, "error": "Review room not found"}), 404
+                
+                title, updated_at = metadata_row
+                
+                # Create ETag based on review_room_id and updated_at for caching
+                import hashlib
+                etag = hashlib.md5(f"{review_room_id}-{updated_at}".encode()).hexdigest()
+                
+                # Check if client has cached version
+                if request.headers.get('If-None-Match') == f'"{etag}"':
+                    from flask import Response
+                    return Response(status=304)  # Not Modified
+                
+                # Now get the actual PDF data
+                cur.execute(
+                    """
+                    SELECT pdf_files
                     FROM reviewrooms 
                     WHERE review_room_id = %s AND user_id = %s AND is_active = TRUE
                     """,
@@ -423,63 +449,25 @@ def get_reviewroom_pdf(review_room_id):
                 if not row:
                     return jsonify({"ok": False, "error": "Review room not found"}), 404
                 
-                pdf_files, title = row
+                pdf_files = row[0]
                 if not pdf_files or len(pdf_files) == 0:
                     return jsonify({"ok": False, "error": "No PDF found in this review room"}), 404
                 
                 # Get the first PDF file
                 pdf_data = pdf_files[0]
                 
-                # Run OCR and log results when PDF is loaded
-                # COMMENTED OUT: OCR processing during loading - OCR is done again before sending to assistant
-                # print(f"\n=== OCR PROCESSING FOR REVIEW ROOM {review_room_id} ===")
-                # print(f"Title: {title}")
-                # print(f"User: {session.get('username', 'Unknown')}")
-                # 
-                # try:
-                #     ocr_results = planreview.extract_text_with_ocr_blocks(pdf_data)
-                #     
-                #     print(f"OCR Results: Found {len(ocr_results)} text elements")
-                #     print("=" * 60)
-                #     
-                #     # Group results by page for better logging
-                #     pages = {}
-                #     for item in ocr_results:
-                #         page = item['page']
-                #         if page not in pages:
-                #             pages[page] = []
-                #         pages[page].append(item)
-                #     
-                #     # Log results page by page
-                #     for page_num in sorted(pages.keys()):
-                #         page_items = pages[page_num]
-                #         print(f"\nPAGE {page_num}: {len(page_items)} text elements")
-                #         print("-" * 40)
-                #         
-                #         for i, item in enumerate(page_items[:20], 1):  # Limit to first 20 items per page
-                #             bbox = item['bbox']
-                #             confidence = item['confidence']
-                #             text = item['text'][:50]  # Truncate long text
-                #             
-                #             print(f"{i:2d}. [{bbox['x']:4d},{bbox['y']:4d} {bbox['width']:3d}x{bbox['height']:3d}] "
-                #                   f"({confidence:2d}%) \"{text}\"")
-                #         
-                #         if len(page_items) > 20:
-                #             print(f"    ... and {len(page_items) - 20} more items")
-                #     
-                #     print("=" * 60)
-                #     
-                # except Exception as ocr_error:
-                #     print(f"OCR Error: {ocr_error}")
-                
-                # Create response with PDF data
+                # Create response with PDF data and caching headers
                 from flask import Response
                 response = Response(
                     pdf_data,
                     mimetype='application/pdf',
                     headers={
                         'Content-Disposition': f'inline; filename="{title}.pdf"',
-                        'Content-Type': 'application/pdf'
+                        'Content-Type': 'application/pdf',
+                        'Content-Length': str(len(pdf_data)),
+                        'ETag': f'"{etag}"',
+                        'Cache-Control': 'private, max-age=3600',  # Cache for 1 hour
+                        'Last-Modified': updated_at.strftime('%a, %d %b %Y %H:%M:%S GMT') if updated_at else ''
                     }
                 )
                 return response
@@ -487,6 +475,51 @@ def get_reviewroom_pdf(review_room_id):
     except Exception as e:
         print(f"Error fetching review room PDF: {e}")
         return jsonify({"ok": False, "error": "Failed to fetch PDF"}), 500
+
+@app.route('/api/reviewrooms/<int:review_room_id>/pdf/info', methods=['GET'])
+@login_required
+def get_reviewroom_pdf_info(review_room_id):
+    """Get PDF metadata without loading the actual PDF data"""
+    try:
+        with cnx:
+            with cnx.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT title, updated_at, 
+                           CASE WHEN pdf_files IS NOT NULL AND array_length(pdf_files, 1) > 0 
+                                THEN TRUE ELSE FALSE END as has_pdf
+                    FROM reviewrooms 
+                    WHERE review_room_id = %s AND user_id = %s AND is_active = TRUE
+                    """,
+                    (review_room_id, session['user_id'])
+                )
+                
+                row = cur.fetchone()
+                if not row:
+                    return jsonify({"ok": False, "error": "Review room not found"}), 404
+                
+                title, updated_at, has_pdf = row
+                
+                if not has_pdf:
+                    return jsonify({"ok": False, "error": "No PDF found in this review room"}), 404
+                
+                # Create ETag for caching consistency
+                import hashlib
+                etag = hashlib.md5(f"{review_room_id}-{updated_at}".encode()).hexdigest()
+                
+                return jsonify({
+                    "ok": True,
+                    "review_room_id": review_room_id,
+                    "title": title,
+                    "has_pdf": has_pdf,
+                    "etag": etag,
+                    "last_modified": updated_at.isoformat() if updated_at else None,
+                    "pdf_url": f"/api/reviewrooms/{review_room_id}/pdf"
+                }), 200
+                
+    except Exception as e:
+        print(f"Error fetching PDF info: {e}")
+        return jsonify({"ok": False, "error": "Failed to fetch PDF info"}), 500
 
 @app.route('/api/reviewrooms', methods=['GET'])
 @login_required
@@ -519,11 +552,29 @@ def get_reviewrooms():
         print(f"Error fetching review rooms: {e}")
         return jsonify({"ok": False, "error": "Failed to fetch review rooms"}), 500
 
+@app.route('/api/reviewers', methods=['GET'])
+@login_required
+def get_available_reviewers():
+    """Get list of available reviewers"""
+    try:
+        reviewers = planreview.load_reviewers()
+        return jsonify({
+            "ok": True,
+            "reviewers": reviewers['reviewers']
+        }), 200
+    except Exception as e:
+        print(f"Error loading reviewers: {e}")
+        return jsonify({"ok": False, "error": "Failed to load reviewers"}), 500
+
 @app.route('/api/reviewrooms/<int:review_room_id>/submit-plan', methods=['POST'])
 @login_required
 def submit_plan_for_review(review_room_id):
-    """Submit the first sheet of a plan set to OpenAI Assistants API for stormwater review"""
+    """Submit the first sheet of a plan set to OpenAI Assistants API for review"""
     try:
+        # Get reviewer from request body
+        data = request.get_json() or {}
+        reviewer_name = data.get('reviewer_name', 'Stormwater Reviewer')  # Default to Stormwater
+        
         # Get the review room and PDF
         with cnx:
             with cnx.cursor() as cur:
@@ -547,8 +598,11 @@ def submit_plan_for_review(review_room_id):
                 # Get the first PDF (first sheet)
                 first_pdf = pdf_files[0]
                 
-                # Submit to stormwater reviewer
-                result = planreview.submit_plan_to_stormwater_reviewer(first_pdf, title)
+                # Submit to selected reviewer
+                if reviewer_name == 'Stormwater Reviewer':
+                    result = planreview.submit_plan_to_stormwater_reviewer(first_pdf, title)
+                else:
+                    result = planreview.submit_plan_to_reviewer(first_pdf, title, reviewer_name)
                 
                 if result.get('status') == 'success':
                     comments_data = result.get('comments_data')
