@@ -5,6 +5,7 @@ import udochat
 import planreview
 import psycopg2
 import psycopg2.extras
+from psycopg2 import pool
 from werkzeug.security import check_password_hash, generate_password_hash
 import os
 import datetime
@@ -18,10 +19,77 @@ from PIL import Image
 
 MAX_LOGIN_ATTEMPTS = 5
 
+def is_azure_deployment():
+    """Detect if running in Azure App Service"""
+    return (
+        os.environ.get('WEBSITE_SITE_NAME') is not None or 
+        os.environ.get('AZURE_CLIENT_ID') is not None or
+        os.environ.get('WEBSITE_RESOURCE_GROUP') is not None
+    )
+
+def get_db_config():
+    """Get database configuration based on environment"""
+    if is_azure_deployment():
+        # Azure production database
+        return {
+            'user': os.environ.get('DB_USER', 'hpkrhbkroa'),
+            'password': os.environ.get('DB_PASSWORD', 'Resident20!)'),
+            'host': os.environ.get('DB_HOST', 'planreview-server.postgres.database.azure.com'),
+            'port': int(os.environ.get('DB_PORT', '5432')),
+            'database': os.environ.get('DB_NAME', 'postgres')
+        }
+    else:
+        # Local development database
+        return {
+            'user': os.environ.get('DB_USER', 'admin'),
+            'password': os.environ.get('DB_PASSWORD', 'admin'),
+            'host': os.environ.get('DB_HOST', '127.0.0.1'),
+            'port': int(os.environ.get('DB_PORT', '54612')),
+            'database': os.environ.get('DB_NAME', 'postgres')
+        }
+
+def create_db_pool():
+    """Create database connection pool"""
+    config = get_db_config()
+    if is_azure_deployment():
+        # Larger pool for Azure
+        return psycopg2.pool.ThreadedConnectionPool(
+            minconn=2,
+            maxconn=20,
+            **config
+        )
+    else:
+        # Smaller pool for local dev
+        return psycopg2.pool.ThreadedConnectionPool(
+            minconn=1,
+            maxconn=5,
+            **config
+        )
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
-cnx = psycopg2.connect(user="hpkrhbkroa", password="Resident20!)", host="planreview-server.postgres.database.azure.com", port=5432, database="postgres")
-# cnx = psycopg2.connect(user="admin", password="admin", host="127.0.0.1", port="54580", database="postgres")
+
+# Create connection pool instead of single connection
+db_pool = create_db_pool()
+
+def get_db_connection():
+    """Get a connection from the pool"""
+    return db_pool.getconn()
+
+def return_db_connection(conn):
+    """Return a connection to the pool"""
+    db_pool.putconn(conn)
+
+from contextlib import contextmanager
+
+@contextmanager
+def db_connection():
+    """Context manager for database connections"""
+    conn = get_db_connection()
+    try:
+        yield conn
+    finally:
+        return_db_connection(conn)
 
 def login_required(f):
     @wraps(f)
@@ -59,7 +127,7 @@ def signup():
     if not username or not password:
         return jsonify({"ok": False, "error": "username and password required for signup"}), 400
 
-    with cnx:
+    with db_connection() as cnx:
         with cnx.cursor() as cur:
             login_time = datetime.datetime.now()
             # 1) insert login credentials into database
@@ -96,7 +164,7 @@ def login():
     if not username or not password:
         return jsonify({"ok": False, "error": "username and password required for signin"}), 400
 
-    with cnx:
+    with db_connection() as cnx:
         try:
             with cnx.cursor() as cur:
                 # 1) Lock the row to prevent race conditions on attempts
@@ -171,7 +239,7 @@ def logout():
 @login_required
 def get_conversations():
     try:
-        with cnx:
+        with db_connection() as cnx:
             with cnx.cursor() as cur:
                 cur.execute(
                     """
@@ -203,7 +271,7 @@ def get_conversations():
 @login_required
 def get_conversation_messages(conversation_id):
     try:
-        with cnx:
+        with db_connection() as cnx:
             with cnx.cursor() as cur:
                 cur.execute(
                     """
@@ -244,8 +312,9 @@ def chat():
         return jsonify({"error": "Message is required"}), 400
     
     try:
-        # Get AI response
-        result = udochat.create_flask_response(message, assistant_id, thread_id)
+        # Get AI response - Note: For regular chat, you'll need to provide a prompt_id
+        # This might need to be updated based on your chat implementation
+        result = udochat.create_flask_response(message, prompt_id=assistant_id, conversation_id=thread_id)
         
         if result.get('status') == 'success':
             # Save conversation to database
@@ -254,8 +323,8 @@ def chat():
                 message, 
                 result.get('response', ''), 
                 session['user_id'],
-                result.get('assistant_id'),
-                result.get('thread_id')
+                result.get('prompt_id'),
+                result.get('conversation_id')
             )
             result['conversation_id'] = conversation_id
         
@@ -263,10 +332,10 @@ def chat():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def save_conversation_to_db(conversation_id, user_message, ai_response, user_id, assistant_id, thread_id):
+def save_conversation_to_db(conversation_id, user_message, ai_response, user_id, prompt_id, conversation_api_id):
     """Save or update conversation in the database"""
     try:
-        with cnx:
+        with db_connection as cnx:
             with cnx.cursor() as cur:
                 if conversation_id:
                     # Update existing conversation
@@ -379,7 +448,7 @@ def upload_pdf():
 def save_pdf_to_reviewroom(title, pdf_content, user_id, filename=""):
     """Save PDF file to reviewrooms database"""
     try:
-        with cnx:
+        with db_connection() as cnx:
             with cnx.cursor() as cur:
                 # Create new review room with PDF
                 cur.execute(
@@ -408,7 +477,7 @@ def save_pdf_to_reviewroom(title, pdf_content, user_id, filename=""):
 @login_required
 def get_reviewroom_pdf(review_room_id):
     try:
-        with cnx:
+        with db_connection() as cnx:
             with cnx.cursor() as cur:
                 # First, check if PDF exists and get metadata for caching
                 cur.execute(
@@ -481,7 +550,7 @@ def get_reviewroom_pdf(review_room_id):
 def get_reviewroom_pdf_info(review_room_id):
     """Get PDF metadata without loading the actual PDF data"""
     try:
-        with cnx:
+        with db_connection() as cnx:
             with cnx.cursor() as cur:
                 cur.execute(
                     """
@@ -525,7 +594,7 @@ def get_reviewroom_pdf_info(review_room_id):
 @login_required
 def get_reviewrooms():
     try:
-        with cnx:
+        with db_connection() as cnx:
             with cnx.cursor() as cur:
                 cur.execute(
                     """
@@ -576,7 +645,7 @@ def submit_plan_for_review(review_room_id):
         reviewer_name = data.get('reviewer_name', 'Stormwater Reviewer')  # Default to Stormwater
         
         # Get the review room and PDF
-        with cnx:
+        with db_connection() as cnx:
             with cnx.cursor() as cur:
                 cur.execute(
                     """
@@ -624,8 +693,8 @@ def submit_plan_for_review(review_room_id):
                         "ok": True,
                         "message": "Plan submitted for review successfully",
                         "review_comments": comments_data,
-                        "assistant_id": result.get('assistant_id'),
-                        "thread_id": result.get('thread_id')
+                        "prompt_id": result.get('prompt_id'),
+                        "conversation_id": result.get('conversation_id')
                     }), 200
                 
                 else:
@@ -644,7 +713,7 @@ def submit_plan_for_review(review_room_id):
 def get_review_comments(review_room_id):
     """Get review comments for a specific review room"""
     try:
-        with cnx:
+        with db_connection() as cnx:
             with cnx.cursor() as cur:
                 cur.execute(
                     """
@@ -679,7 +748,7 @@ def get_review_comments(review_room_id):
 def extract_ocr_from_review_room(review_room_id):
     """Extract OCR data from a review room's PDF"""
     try:
-        with cnx:
+        with db_connection() as cnx:
             with cnx.cursor() as cur:
                 # Get the PDF from the review room
                 cur.execute(
@@ -722,7 +791,7 @@ def extract_ocr_from_review_room(review_room_id):
 def extract_ocr_blocks_from_review_room(review_room_id):
     """Extract OCR data as text blocks from a review room's PDF"""
     try:
-        with cnx:
+        with db_connection() as cnx:
             with cnx.cursor() as cur:
                 # Get the PDF from the review room
                 cur.execute(

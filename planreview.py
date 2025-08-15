@@ -207,11 +207,13 @@ Based on the extracted text and layout information above, please provide your re
 
 When referencing specific areas of concern, use the position information from the extracted text blocks to provide precise feedback."""
         
-        # Call the assistant (it already has the proper formatting instructions)
+        # Call the Responses API
         result = udochat.create_flask_response(
             message=message,
-            assistant_id=stormwater_reviewer['assistant_id'],
-            thread_id=None  # Create new thread for each review
+            prompt_id=stormwater_reviewer['prompt_id'],
+            conversation_id=None,  # Create new conversation for each review
+            file_data=pdf_data,
+            filename=title + ".pdf"
         )
         
         if result.get('status') == 'success':
@@ -260,8 +262,8 @@ When referencing specific areas of concern, use the position information from th
                 "status": "success",
                 "comments_data": comments_data,
                 "raw_response": assistant_response,
-                "assistant_id": result.get('assistant_id'),
-                "thread_id": result.get('thread_id')
+                "prompt_id": result.get('prompt_id'),
+                "conversation_id": result.get('conversation_id')
             }
         else:
             return {
@@ -306,30 +308,20 @@ def submit_plan_to_reviewer(pdf_data: bytes, title: str, reviewer_name: str) -> 
                 "error": f"Reviewer '{reviewer_name}' not found in configuration"
             }
         
-        # Extract OCR text blocks from the PDF
-        print(f"Extracting OCR data for {reviewer_name} review: {title}")
-        ocr_data = extract_text_with_ocr_blocks(pdf_data)
-        print(f"OCR extraction complete: Found {len(ocr_data)} text blocks")
-        
-        # Format OCR data for the prompt
-        ocr_text = "" #format_ocr_for_prompt(ocr_data)
-        
         # Create enhanced message with OCR data
-        message = f"""Please review this development plan.
-
-Plan Title: {title}
+        message = f"""Please review the attached development plan.
 
 This is the first sheet of the plan set that needs review according to your role.
 
-{ocr_text}
-
 Rely on your file search tool for generating comments. Please provide your review."""
         
-        # Call the assistant
+        # Call the Responses API
         result = udochat.create_flask_response(
             message=message,
-            assistant_id=reviewer['assistant_id'],
-            thread_id=None  # Create new thread for each review
+            prompt_id=reviewer['prompt_id'],
+            conversation_id=None,  # Create new conversation for each review
+            file_data=pdf_data,
+            filename=title + ".pdf"
         )
         
         if result.get('status') == 'success':
@@ -374,8 +366,8 @@ Rely on your file search tool for generating comments. Please provide your revie
                 "status": "success",
                 "comments_data": comments_data,
                 "raw_response": assistant_response,
-                "assistant_id": result.get('assistant_id'),
-                "thread_id": result.get('thread_id'),
+                "prompt_id": result.get('prompt_id'),
+                "conversation_id": result.get('conversation_id'),
                 "reviewer_name": reviewer_name
             }
         else:

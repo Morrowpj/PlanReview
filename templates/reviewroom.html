@@ -23,6 +23,9 @@
         /* Sidebar */
         .sidebar {
             width: 260px;
+            min-width: 260px;
+            max-width: 260px;
+            flex-shrink: 0;
             background: #202123;
             display: flex;
             flex-direction: column;
@@ -82,10 +85,11 @@
 
         /* Main Content */
         .main-content {
-            flex: 1;
+            width: calc(100% - 260px);
             display: flex;
             flex-direction: column;
             position: relative;
+            overflow: hidden;
         }
 
         /* PDF View Layout */
@@ -95,15 +99,19 @@
         }
 
         .pdf-content {
-            flex: 1;
+            width: calc(100% - 350px);
             display: flex;
             flex-direction: column;
             min-width: 0;
+            overflow: hidden;
         }
 
         /* Comments Sidebar */
         .comments-sidebar {
             width: 350px;
+            min-width: 350px;
+            max-width: 350px;
+            flex-shrink: 0;
             background: #40414f;
             border-left: 1px solid #565869;
             display: flex;
@@ -160,6 +168,17 @@
 
         .comment-item:hover {
             background: rgba(255, 255, 255, 0.05);
+        }
+
+        .comment-item.highlighted {
+            background: rgba(16, 163, 127, 0.1);
+            border-left: 3px solid #10a37f;
+            animation: pulse 1s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { background: rgba(16, 163, 127, 0.3); }
+            100% { background: rgba(16, 163, 127, 0.1); }
         }
 
         .comment-header {
@@ -559,17 +578,94 @@
             flex: 1;
             overflow: auto;
             background: #2d2d2d;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             padding: 20px;
+            position: relative;
         }
 
         #pdfCanvas {
-            max-width: 100%;
-            max-height: 100%;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             border-radius: 4px;
+            display: block;
+            margin: 0 auto;
+            /* Remove max-width/height constraints to allow zooming */
+        }
+
+        /* PDF Overlay for comments */
+        .pdf-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .comment-bubble {
+            position: absolute;
+            background: rgba(239, 68, 68, 0.9);
+            border: 2px solid #ef4444;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            pointer-events: all;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .comment-bubble:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .comment-bubble.blocking {
+            background: rgba(239, 68, 68, 0.9);
+            border-color: #ef4444;
+        }
+
+        .comment-bubble.major {
+            background: rgba(245, 158, 11, 0.9);
+            border-color: #f59e0b;
+        }
+
+        .comment-bubble.minor {
+            background: rgba(34, 197, 94, 0.9);
+            border-color: #22c55e;
+        }
+
+        .comment-region {
+            position: absolute;
+            border: 2px dashed rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.1);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .comment-region.blocking {
+            border-color: rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .comment-region.major {
+            border-color: rgba(245, 158, 11, 0.4);
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .comment-region.minor {
+            border-color: rgba(34, 197, 94, 0.4);
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .comment-region.highlighted {
+            opacity: 1;
         }
 
         /* Mobile responsive */
@@ -733,6 +829,7 @@
                         </div>
                         <div class="canvas-shell">
                             <canvas id="pdfCanvas"></canvas>
+                            <div class="pdf-overlay" id="pdfOverlay"></div>
                         </div>
                     </div>
 
@@ -1041,11 +1138,17 @@
             }
             viewport = page.getViewport({ scale });
 
-            // Resize canvas
+            // Set canvas internal dimensions (actual pixel resolution)
             canvas.width = Math.floor(viewport.width);
             canvas.height = Math.floor(viewport.height);
+            
+            // Clear any previous CSS size constraints
+            canvas.style.width = '';
+            canvas.style.height = '';
+            canvas.style.maxWidth = 'none';
+            canvas.style.maxHeight = 'none';
 
-            // Render
+            // Render PDF to canvas
             await page.render({
                 canvasContext: ctx,
                 viewport
@@ -1053,6 +1156,9 @@
 
             // Update page number display
             document.getElementById('pageNum').textContent = num;
+            
+            // Refresh comment overlay after rendering
+            refreshCommentOverlay();
         }
 
         function initializePdfControls() {
@@ -1450,6 +1556,10 @@
             // Hide any loading states first
             hideCommentsLoading();
             
+            // Clear comment overlay
+            clearCommentOverlay();
+            currentComments = [];
+            
             if (commentsContent) {
                 // Clear all comment content
                 commentsContent.innerHTML = '';
@@ -1499,10 +1609,15 @@
             if (!comments || comments.length === 0) {
                 console.log('No comments to display, showing empty state');
                 commentsEmpty.style.display = 'flex';
+                clearCommentOverlay();
+                currentComments = [];
                 return;
             }
 
             console.log(`Displaying ${comments.length} comments`);
+            
+            // Store comments globally for overlay refresh
+            currentComments = comments;
             
             // Clear existing comments
             commentsContent.innerHTML = '';
@@ -1514,12 +1629,16 @@
                 commentsContent.appendChild(commentElement);
             });
             
+            // Create comment bubbles on PDF overlay
+            createCommentOverlay(comments);
+            
             console.log('Comments display completed');
         }
 
         function createCommentElement(comment, index) {
             const commentDiv = document.createElement('div');
             commentDiv.className = 'comment-item';
+            commentDiv.dataset.commentIndex = index;
             commentDiv.innerHTML = `
                 <div class="comment-header">
                     <div class="comment-category">${comment.category || 'General'}</div>
@@ -1538,7 +1657,131 @@
                     </div>
                 ` : ''}
             `;
+            
+            // Add click handler to highlight from sidebar
+            commentDiv.addEventListener('click', () => highlightComment(index));
+            
             return commentDiv;
+        }
+
+        // Comment Overlay Functions
+        function createCommentOverlay(comments) {
+            console.log('Creating comment overlay with', comments.length, 'comments');
+            clearCommentOverlay();
+            
+            const overlay = document.getElementById('pdfOverlay');
+            const canvas = document.getElementById('pdfCanvas');
+            
+            if (!overlay || !canvas || !pdf) {
+                console.log('Missing overlay, canvas, or PDF - skipping overlay creation');
+                return;
+            }
+            
+            comments.forEach((comment, index) => {
+                if (!comment.region) return;
+                
+                // Filter comments for current page
+                const commentPageKey = comment.page_key?.toLowerCase() || '';
+                const currentPageKey = `sheet ${pageNum}`;
+                
+                // For now, show all comments on all pages (you can adjust this logic)
+                // if (!commentPageKey.includes(currentPageKey)) return;
+                
+                createCommentBubbleAndRegion(comment, index, overlay, canvas);
+            });
+        }
+
+        function createCommentBubbleAndRegion(comment, index, overlay, canvas) {
+            const { x, y, w, h } = comment.region;
+            const severity = comment.severity || 'minor';
+            
+            // Get canvas position and scale
+            const canvasRect = canvas.getBoundingClientRect();
+            const overlayRect = overlay.getBoundingClientRect();
+            
+            // Calculate relative positions
+            const canvasX = canvasRect.left - overlayRect.left;
+            const canvasY = canvasRect.top - overlayRect.top;
+            
+            // Scale coordinates based on canvas size vs PDF page size
+            const scaleX = canvas.width / canvas.offsetWidth;
+            const scaleY = canvas.height / canvas.offsetHeight;
+            
+            const scaledX = (x / scaleX) + canvasX;
+            const scaledY = (y / scaleY) + canvasY;
+            const scaledW = w / scaleX;
+            const scaledH = h / scaleY;
+            
+            // Create comment region (background highlight)
+            const region = document.createElement('div');
+            region.className = `comment-region ${severity}`;
+            region.style.left = `${scaledX}px`;
+            region.style.top = `${scaledY}px`;
+            region.style.width = `${scaledW}px`;
+            region.style.height = `${scaledH}px`;
+            region.dataset.commentIndex = index;
+            
+            // Create comment bubble (at top-left of region)
+            const bubble = document.createElement('div');
+            bubble.className = `comment-bubble ${severity}`;
+            bubble.style.left = `${scaledX - 12}px`; // Offset to position nicely
+            bubble.style.top = `${scaledY - 12}px`;
+            bubble.textContent = index + 1;
+            bubble.dataset.commentIndex = index;
+            
+            // Add click handler to bubble
+            bubble.addEventListener('click', () => highlightComment(index));
+            
+            // Add elements to overlay
+            overlay.appendChild(region);
+            overlay.appendChild(bubble);
+        }
+
+        function clearCommentOverlay() {
+            const overlay = document.getElementById('pdfOverlay');
+            if (overlay) {
+                overlay.innerHTML = '';
+            }
+        }
+
+        // Store current comments for overlay refresh
+        let currentComments = [];
+
+        function refreshCommentOverlay() {
+            if (currentComments.length > 0) {
+                createCommentOverlay(currentComments);
+            }
+        }
+
+        function highlightComment(commentIndex) {
+            console.log('Highlighting comment', commentIndex);
+            
+            // Clear all existing highlights
+            document.querySelectorAll('.comment-item').forEach(item => {
+                item.classList.remove('highlighted');
+            });
+            document.querySelectorAll('.comment-region').forEach(region => {
+                region.classList.remove('highlighted');
+            });
+            
+            // Highlight the selected comment in sidebar
+            const commentElement = document.querySelector(`.comment-item[data-comment-index="${commentIndex}"]`);
+            if (commentElement) {
+                commentElement.classList.add('highlighted');
+                commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            // Highlight the region on PDF
+            const regionElement = document.querySelector(`.comment-region[data-comment-index="${commentIndex}"]`);
+            if (regionElement) {
+                regionElement.classList.add('highlighted');
+            }
+            
+            // Remove highlight after 3 seconds
+            setTimeout(() => {
+                if (commentElement) commentElement.classList.remove('highlighted');
+                if (regionElement) regionElement.classList.remove('highlighted');
+            }, 3000);
         }
 
         function showCommentsLoading() {
