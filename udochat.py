@@ -71,6 +71,7 @@ Additional Considerations:
 - On plan/profile sheets, exclude structure data for non-profiled roads.
 - Consider simple typical sections (swales, etc.) for clarity.
 - Contour Label clarity, or lack thereof of contour labels.
+- Storm Structure data may be present in the storm structure table, This is standard and acceptable.
 
 Prohibited elements (comment if shown on Grading/Storm Drainage Plan):
 - Sanitary sewer outfall stationing
@@ -101,16 +102,30 @@ Reasoning Steps
 Output Format
 
 # Output Format
-Numbered list of comments. Each comment must include:
+JSON array of comments. Each comment must include:
   1. Issue Category (e.g., Text Overlap, Lineweight, Missing Label)
   2. Brief problem description
   3. Location identified by X/Y coordinates and a bounding box
   4. Reasoning: Succinctly document the logical, observable rationale for the comment, tied to visible PDF evidence
+
 Example:
-1. Issue Category: Missing Label
-   Problem: No pipe label provided for storm drainage crossing
-   Location: X: 212, Y: 415, Bounding Box: [200, 410, 230, 435]
-   Reasoning: Examined the area around the pipe; no label or leader was observed near the crossing, and no reference to this feature exists in adjacent tables.
+"comments" : [
+{
+"reasoning" : "Examined the area around the structure; no label or leader was observed within a 100 pixel radius. There is a label to the north that could be pointing to CB-102, and one pointing to CB-104. This could mean that CB-103 is the pipe in question. After checking the storm data table, there is reference to CB-103, but this label is found nowhere on the plan. I think the user forgot to label this structure, so lets comment for them to add the structure label.",
+"page_key" : "C3.02",
+"region" : {
+"x" : 124,
+"y" : 356,
+"w" : 80,
+"h" : 120
+}
+"body" : "Structure label missing for CB-103, Label observed in structure data table, but is missing on the plans.",
+"suggested_fix" : "Label CB-103 in this area",
+"severity" : "minor",
+"category" : "General",
+"code_refs" : "n/a"
+}
+]
 
 - Ensure accuracy in bounding box placement for clear identification.
 - Reason by text as appropriate for comprehensive review.
@@ -124,20 +139,23 @@ Use an objective, precise, and concise professional drafting review style. Only 
             
             # Prepare content for user role
             user_content = [
-                {"type": "input_text", "text": "Please review this plan sheet, for reference on comment placement coordinates: The upper left of the PDF is 0,0 and the bottom right is H,W in pixels"}
+                {"type": "input_text", "text": "Please review this plan sheet. The PDF has been split into 4 quadrant images (top-left, top-right, bottom-left, bottom-right) to improve image quality. When providing coordinates, use the coordinate system of the entire plan, with 0,0 being the upper left of the sheet, and 728 and 1024 being the height and width of the plan"}
             ]
             
             # Add file if provided
             if file_data and filename:
-                print(f"📁 Converting PDF to high-resolution PNG: {filename}")
+                print(f"📁 Converting PDF to high-resolution PNG quadrants: {filename}")
                 file_data = file_data.tobytes()
-                image_data = convert_pdf_to_high_res_image(file_data)
-                b64_image = base64.b64encode(image_data).decode('utf-8')
-                user_content.append({
-                    "type": "input_image", 
-                    "image_url": f"data:image/png;base64,{b64_image}",
-                })
-                print(f"✅ High-resolution PNG added to request")
+                quadrant_images = convert_pdf_to_high_res_image(file_data)
+                
+                # Add each quadrant image to the user content
+                for i, image_data in enumerate(quadrant_images):
+                    b64_image = base64.b64encode(image_data).decode('utf-8')
+                    user_content.append({
+                        "type": "input_image", 
+                        "image_url": f"data:image/png;base64,{b64_image}",
+                    })
+                print(f"✅ {len(quadrant_images)} high-resolution PNG quadrants added to request")
             
             # Call the Responses API with the new structure
             response = self.client.responses.create(
@@ -376,7 +394,8 @@ def main():
 
 def convert_pdf_to_high_res_image(pdf_bytes):
     """
-    Helper function to convert PDF to high-resolution RGB image and return as PNG bytes
+    Helper function to convert PDF to high-resolution RGB image and split into 4 quadrant images
+    Returns list of PNG bytes for each quadrant (top-left, top-right, bottom-left, bottom-right)
     """
     try:
         # Open PDF document
@@ -386,11 +405,11 @@ def convert_pdf_to_high_res_image(pdf_bytes):
         if doc.needs_pass:
             print("PDF is password protected, returning original")
             doc.close()
-            return pdf_bytes
+            return [pdf_bytes]
             
         if doc.is_closed:
             print("PDF document is closed, returning original")
-            return pdf_bytes
+            return [pdf_bytes]
         
         # Get first page (assuming single page for plan review)
         page = doc[0]
@@ -399,20 +418,42 @@ def convert_pdf_to_high_res_image(pdf_bytes):
         mat = fitz.Matrix(4, 4)  # 4x scaling for much better quality
         pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
         
-        # Convert to PNG bytes
-        img_bytes = pix.tobytes("png")
+        # Convert to PIL Image for easier manipulation
+        img_data = pix.tobytes("png")
+        image = Image.open(BytesIO(img_data))
+        
+        # Get image dimensions
+        width, height = image.size
+        half_width = width // 2
+        half_height = height // 2
+        
+        # Split into 4 quadrants
+        quadrants = [
+            image.crop((0, 0, half_width, half_height)),  # Top-left
+            image.crop((half_width, 0, width, half_height)),  # Top-right
+            image.crop((0, half_height, half_width, height)),  # Bottom-left
+            image.crop((half_width, half_height, width, height))  # Bottom-right
+        ]
+        
+        # Convert each quadrant to PNG bytes
+        quadrant_bytes = []
+        for i, quadrant in enumerate(quadrants):
+            buffer = BytesIO()
+            quadrant.save(buffer, format='PNG')
+            quadrant_bytes.append(buffer.getvalue())
+            print(f"✅ Quadrant {i+1} converted to PNG (size: {len(quadrant_bytes[i])} bytes)")
         
         # Clean up
         pix = None
         doc.close()
         
-        print(f"✅ PDF converted to high-resolution PNG image (estimated size: {len(img_bytes)} bytes)")
-        return img_bytes
+        print(f"✅ PDF converted to 4 high-resolution PNG quadrants")
+        return quadrant_bytes
         
     except Exception as e:
-        print(f"Error converting PDF to high-resolution image: {e}")
-        # Return original bytes if conversion fails
-        return pdf_bytes
+        print(f"Error converting PDF to high-resolution quadrant images: {e}")
+        # Return original bytes in a list if conversion fails
+        return [pdf_bytes]
 
 if __name__ == "__main__":
     main()

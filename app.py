@@ -44,7 +44,7 @@ def get_db_config():
             'user': os.environ.get('DB_USER', 'admin'),
             'password': os.environ.get('DB_PASSWORD', 'admin'),
             'host': os.environ.get('DB_HOST', '127.0.0.1'),
-            'port': int(os.environ.get('DB_PORT', '54612')),
+            'port': int(os.environ.get('DB_PORT', '54547')),
             'database': os.environ.get('DB_NAME', 'postgres')
         }
 
