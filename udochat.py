@@ -67,11 +67,9 @@ Concentrate comments only on the following grading plan elements and their label
 
 Additional Considerations:
 - Omit curb/gutter spot grades where an inlet is present; use T/C data from drainage.
-- If a drainage table is required, data must also be called out directly at each structure/pipe.
-- On plan/profile sheets, exclude structure data for non-profiled roads.
+- If a storm drainage table is provided, There is no need to comment that a structure data label is missing if the table contains the data.
 - Consider simple typical sections (swales, etc.) for clarity.
 - Contour Label clarity, or lack thereof of contour labels.
-- Storm Structure data may be present in the storm structure table, This is standard and acceptable.
 
 Prohibited elements (comment if shown on Grading/Storm Drainage Plan):
 - Sanitary sewer outfall stationing
@@ -131,6 +129,7 @@ Example:
 - Reason by text as appropriate for comprehensive review.
 
 After all comments, validate that output strictly matches the required format and revise if discrepancies or omissions are found.
+Provide no more that 25 comments.
 
 Tone
 
@@ -159,7 +158,7 @@ Use an objective, precise, and concise professional drafting review style. Only 
             
             # Call the Responses API with the new structure
             response = self.client.responses.create(
-                model="gpt-5",
+                model="gpt-5-mini",
                 input=[
                     {"role": "developer", "content": [{"type": "input_text", "text": prompt_text}]},
                     {"role": "user", "content": user_content}
